@@ -679,79 +679,82 @@
                     `;
                 }
             } catch (e) {
+                console.error("Weather fetch failed", e);
+                weatherWidget.innerHTML = '<div class="weather-loc">Weather unavailable</div>';
+            }
+        } // Added missing closing brace
+
+        let lastFetchedNews = [];
+
+        // --- News Logic ---
+        async function fetchNews() {
+            showStatus("Loading...");
+            try {
+                const targetUrl = getRSSUrl();
+                // Use corsproxy.io as fallback since AllOrigins is unstable
+                const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+
+                let response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error('Network response was not ok');
+
+                const text = await response.text();
+                // const data = await response.json(); // AllOrigins specific
+                // const text = data.contents; 
+
+                const parser = new DOMParser();
+                const xml = parser.parseFromString(text, "text/xml");
+
+                const items = Array.from(xml.querySelectorAll("item"));
+                if (items.length === 0) throw new Error("No news items found.");
+
+                const processed = items.map(processItem);
+                lastFetchedNews = processed; // Store for resize re-render
+                return processed;
+            } catch (error) {
+                console.error(error);
+                showStatus("Failed: " + error.message, true);
+                return [];
+            }
+        }
+
+        function processItem(itemNode) {
+            const titleFull = itemNode.querySelector("title")?.textContent || "No Title";
+            const pubDate = itemNode.querySelector("pubDate")?.textContent;
+            const link = itemNode.querySelector("link")?.textContent;
+            let rawDescription = itemNode.querySelector("description")?.textContent || "";
+
+            // Clean description text
+            const div = document.createElement("div");
+            div.innerHTML = rawDescription;
+            let description = div.textContent || div.innerText || "";
+            if (description.length > maxDescLength) description = description.substring(0, maxDescLength) + "...";
+
+            // Split Source
+            let headline = titleFull;
+            let source = "News";
+            const splitIdx = titleFull.lastIndexOf(" - ");
+            if (splitIdx > -1) {
+                headline = titleFull.substring(0, splitIdx);
+                source = titleFull.substring(splitIdx + 3);
             }
 
-            let lastFetchedNews = [];
+            return {
+                headline,
+                source,
+                date: pubDate ? new Date(pubDate) : new Date(),
+                description,
+                link
+            };
+        }
 
-            // --- News Logic ---
-            async function fetchNews() {
-                showStatus("Loading...");
-                try {
-                    const targetUrl = getRSSUrl();
-                    // Use corsproxy.io as fallback since AllOrigins is unstable
-                    const proxyUrl = `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+        function createCard(item) {
+            const el = document.createElement('div');
+            el.className = 'card';
 
-                    let response = await fetch(proxyUrl);
-                    if (!response.ok) throw new Error('Network response was not ok');
+            const tag = topicSelector.options[topicSelector.selectedIndex].text;
+            const region = regionSelector.options[regionSelector.selectedIndex].value;
 
-                    const text = await response.text();
-                    // const data = await response.json(); // AllOrigins specific
-                    // const text = data.contents; 
-
-                    const parser = new DOMParser();
-                    const xml = parser.parseFromString(text, "text/xml");
-
-                    const items = Array.from(xml.querySelectorAll("item"));
-                    if (items.length === 0) throw new Error("No news items found.");
-
-                    const processed = items.map(processItem);
-                    lastFetchedNews = processed; // Store for resize re-render
-                    return processed;
-                } catch (error) {
-                    console.error(error);
-                    showStatus("Failed: " + error.message, true);
-                    return [];
-                }
-            }
-
-            function processItem(itemNode) {
-                const titleFull = itemNode.querySelector("title")?.textContent || "No Title";
-                const pubDate = itemNode.querySelector("pubDate")?.textContent;
-                const link = itemNode.querySelector("link")?.textContent;
-                let rawDescription = itemNode.querySelector("description")?.textContent || "";
-
-                // Clean description text
-                const div = document.createElement("div");
-                div.innerHTML = rawDescription;
-                let description = div.textContent || div.innerText || "";
-                if (description.length > maxDescLength) description = description.substring(0, maxDescLength) + "...";
-
-                // Split Source
-                let headline = titleFull;
-                let source = "News";
-                const splitIdx = titleFull.lastIndexOf(" - ");
-                if (splitIdx > -1) {
-                    headline = titleFull.substring(0, splitIdx);
-                    source = titleFull.substring(splitIdx + 3);
-                }
-
-                return {
-                    headline,
-                    source,
-                    date: pubDate ? new Date(pubDate) : new Date(),
-                    description,
-                    link
-                };
-            }
-
-            function createCard(item) {
-                const el = document.createElement('div');
-                el.className = 'card';
-
-                const tag = topicSelector.options[topicSelector.selectedIndex].text;
-                const region = regionSelector.options[regionSelector.selectedIndex].value;
-
-                el.innerHTML = `
+            el.innerHTML = `
                 <div class="card-header">
                     <div class="badges">
                         <span class="badge badge-cat">${tag}</span>
@@ -767,106 +770,106 @@
                     <p class="card-desc">${item.description}</p>
                 </div>
             `;
-                el.addEventListener('click', () => { window.open(item.link, '_blank'); });
-                el.style.cursor = 'pointer';
-                return el;
-            }
+            el.addEventListener('click', () => { window.open(item.link, '_blank'); });
+            el.style.cursor = 'pointer';
+            return el;
+        }
 
-            function getLaneCount() {
-                const w = window.innerWidth;
-                if (w < 768) return 1;      // Mobile: 1 merged lane
-                if (w <= 1024) return 2;    // iPad/Tablet: 2 lanes
-                return 4;                   // Desktop: 4 lanes
-            }
+        function getLaneCount() {
+            const w = window.innerWidth;
+            if (w < 768) return 1;      // Mobile: 1 merged lane
+            if (w <= 1024) return 2;    // iPad/Tablet: 2 lanes
+            return 4;                   // Desktop: 4 lanes
+        }
 
-            function render(newsItems) {
-                if (!newsItems || newsItems.length === 0) return;
+        function render(newsItems) {
+            if (!newsItems || newsItems.length === 0) return;
 
-                // Fake First/Last cards relevant to topic
-                const activeTopic = topicSelector.options[topicSelector.selectedIndex].text;
-                const activeRegion = regionSelector.options[regionSelector.selectedIndex].text;
+            // Fake First/Last cards relevant to topic
+            const activeTopic = topicSelector.options[topicSelector.selectedIndex].text;
+            const activeRegion = regionSelector.options[regionSelector.selectedIndex].text;
 
-                const firstCard = {
-                    headline: `${activeRegion} • ${activeTopic}`,
-                    source: "System",
-                    date: new Date(),
-                    description: `Live feed active for ${activeRegion} / ${activeTopic}.`,
-                    link: '#'
-                };
-                const lastCard = {
-                    headline: "End of Stream",
-                    source: "System",
-                    date: new Date(),
-                    description: "Waiting for new updates...",
-                    link: '#'
-                };
+            const firstCard = {
+                headline: `${activeRegion} • ${activeTopic}`,
+                source: "System",
+                date: new Date(),
+                description: `Live feed active for ${activeRegion} / ${activeTopic}.`,
+                link: '#'
+            };
+            const lastCard = {
+                headline: "End of Stream",
+                source: "System",
+                date: new Date(),
+                description: "Waiting for new updates...",
+                link: '#'
+            };
 
-                const allItems = [firstCard, ...newsItems, lastCard];
+            const allItems = [firstCard, ...newsItems, lastCard];
 
-                // Clear lanes
-                lanes.forEach(l => l.innerHTML = '');
+            // Clear lanes
+            lanes.forEach(l => l.innerHTML = '');
 
-                // Determine lanes count
-                const laneCount = getLaneCount();
+            // Determine lanes count
+            const laneCount = getLaneCount();
 
-                // Update Grid Layout via JS to ensure it matches data
-                const mainEl = document.querySelector('main');
-                mainEl.style.gridTemplateColumns = `repeat(${laneCount}, 1fr)`;
-                mainEl.style.gridTemplateRows = '1fr'; // Reset any vertical stack rows from previous CSS
+            // Update Grid Layout via JS to ensure it matches data
+            const mainEl = document.querySelector('main');
+            mainEl.style.gridTemplateColumns = `repeat(${laneCount}, 1fr)`;
+            mainEl.style.gridTemplateRows = '1fr'; // Reset any vertical stack rows from previous CSS
 
-                // Distribute items
-                const laneItems = Array.from({ length: laneCount }, () => []);
-                allItems.forEach((item, i) => {
-                    laneItems[i % laneCount].push(item);
-                });
-
-                // Render to DOM & Duplicate for infinite scroll
-                laneItems.forEach((items, i) => {
-                    // Determine actual lane index (0..3)
-                    const container = lanes[i];
-                    // Show this lane's parent window
-                    container.closest('.lane-window').style.display = 'block';
-
-                    const cards = items.map(createCard);
-                    cards.forEach(c => container.appendChild(c));
-                    // Duplicate for loop
-                    cards.forEach(c => container.appendChild(c.cloneNode(true)));
-                });
-
-                // Hide unused lanes
-                for (let i = laneCount; i < 4; i++) {
-                    lanes[i].closest('.lane-window').style.display = 'none';
-                }
-
-                showStatus(laneCount === 1 ? "Mobile Feed Active" : "Live info updated");
-            }
-
-            // Handle Resize
-            window.addEventListener('resize', () => {
-                render(lastFetchedNews);
+            // Distribute items
+            const laneItems = Array.from({ length: laneCount }, () => []);
+            allItems.forEach((item, i) => {
+                laneItems[i % laneCount].push(item);
             });
 
-            async function updateFeed() {
-                const news = await fetchNews();
-                render(news);
-            }
+            // Render to DOM & Duplicate for infinite scroll
+            laneItems.forEach((items, i) => {
+                // Determine actual lane index (0..3)
+                const container = lanes[i];
+                // Show this lane's parent window
+                container.closest('.lane-window').style.display = 'block';
 
-            // --- Events ---
-            themeSelector.addEventListener('change', (e) => {
-                document.body.setAttribute('data-theme', e.target.value);
+                const cards = items.map(createCard);
+                cards.forEach(c => container.appendChild(c));
+                // Duplicate for loop
+                cards.forEach(c => container.appendChild(c.cloneNode(true)));
             });
 
-            reloadBtn.addEventListener('click', updateFeed);
+            // Hide unused lanes
+            for (let i = laneCount; i < 4; i++) {
+                lanes[i].closest('.lane-window').style.display = 'none';
+            }
 
-            // Filter Logic
-            topicSelector.addEventListener('change', updateFeed);
-            regionSelector.addEventListener('change', updateFeed);
+            showStatus(laneCount === 1 ? "Mobile Feed Active" : "Live info updated");
+        }
 
-            // Start
-            fetchWeather();
-            updateFeed();
-            // Refresh weather every 10 mins
-            setInterval(fetchWeather, 600000);
+        // Handle Resize
+        window.addEventListener('resize', () => {
+            render(lastFetchedNews);
+        });
+
+        async function updateFeed() {
+            const news = await fetchNews();
+            render(news);
+        }
+
+        // --- Events ---
+        themeSelector.addEventListener('change', (e) => {
+            document.body.setAttribute('data-theme', e.target.value);
+        });
+
+        reloadBtn.addEventListener('click', updateFeed);
+
+        // Filter Logic
+        topicSelector.addEventListener('change', updateFeed);
+        regionSelector.addEventListener('change', updateFeed);
+
+        // Start
+        fetchWeather();
+        updateFeed();
+        // Refresh weather every 10 mins
+        setInterval(fetchWeather, 600000);
 
     </script>
 </body>
