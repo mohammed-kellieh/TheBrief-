@@ -580,7 +580,7 @@
 
     <script>
         // Configuration
-        const NEWS_ENDPOINT_PROXY = 'http://localhost:3000/api/news';
+
         let currentTopicURL = '';
 
         const maxDescLength = 180;
@@ -696,12 +696,15 @@
             showStatus("Loading...");
             try {
                 const targetUrl = getRSSUrl();
-                const proxyUrl = `${NEWS_ENDPOINT_PROXY}?url=${encodeURIComponent(targetUrl)}`;
+                // Use AllOrigins for static hosting support (e.g. GitHub Pages)
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
 
                 let response = await fetch(proxyUrl);
                 if (!response.ok) throw new Error('Network response was not ok');
 
-                const text = await response.text();
+                const data = await response.json();
+                const text = data.contents; // AllOrigins returns the raw content in 'contents'
+
                 const parser = new DOMParser();
                 const xml = parser.parseFromString(text, "text/xml");
 
