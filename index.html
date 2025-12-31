@@ -1,0 +1,845 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Top News</title>
+    <style>
+        /* --- CSS Reset & Base --- */
+        *,
+        *::before,
+        *::after {
+            box-sizing: border-box;
+        }
+
+        body,
+        h1,
+        h2,
+        p,
+        button {
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            overflow: hidden;
+            /* App-like feel */
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            transition: background-color 0.5s ease, color 0.5s ease;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Theme Variables --- */
+        :root {
+            /* Default: Neon */
+            --bg-color: #0b0f0a;
+            --text-color: #e0e0e0;
+            --card-bg: rgba(20, 24, 20, 0.7);
+            --card-border: rgba(50, 255, 100, 0.2);
+            --accent-color: #39ff14;
+            --secondary-accent: #14ffa9;
+            --card-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+            --glass-blur: 10px;
+            --lane-gap: 1.2rem;
+            --header-height: 80px;
+        }
+
+        body[data-theme='Blue'] {
+            --bg-color: #050a14;
+            --text-color: #dbeafe;
+            --card-bg: rgba(10, 20, 40, 0.75);
+            --card-border: rgba(0, 195, 255, 0.3);
+            --accent-color: #00e5ff;
+            --secondary-accent: #2979ff;
+        }
+
+        body[data-theme='Creative'] {
+            --bg-color: #1a0b1e;
+            --text-color: #fce7f3;
+            /* Creative Gradient Background handled in body::before */
+            --card-bg: rgba(255, 255, 255, 0.1);
+            --card-border: rgba(255, 105, 180, 0.3);
+            --accent-color: #ff00ff;
+            --secondary-accent: #00ffff;
+        }
+
+        /* Gradient Background for Creative Theme */
+        body[data-theme='Creative']::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 20% 30%, #4a0072 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, #004d40 0%, transparent 50%);
+            z-index: -1;
+            opacity: 0.6;
+            filter: blur(60px);
+        }
+
+        /* --- Header --- */
+        header {
+            min-height: var(--header-height);
+            height: auto;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0.8rem 2rem;
+            background: rgba(0, 0, 0, 0.2);
+            backdrop-filter: blur(var(--glass-blur));
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            z-index: 100;
+            gap: 1.5rem;
+            flex-wrap: wrap;
+        }
+
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 2rem;
+            flex-shrink: 0;
+        }
+
+        .logo h1 {
+            font-size: 1.5rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--accent-color);
+            text-shadow: 0 0 10px rgba(57, 255, 20, 0.4);
+            line-height: 1;
+        }
+
+        .logo p {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            letter-spacing: 1px;
+        }
+
+        /* Weather Widget */
+        .weather-widget {
+            display: flex;
+            align-items: center;
+            gap: 0.8rem;
+            font-size: 0.85rem;
+            color: var(--text-color);
+            background: rgba(255, 255, 255, 0.05);
+            padding: 0.4rem 1rem;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            min-width: 140px;
+        }
+
+        .weather-icon {
+            font-size: 1.4rem;
+        }
+
+        .weather-info {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.2;
+        }
+
+        .weather-temp {
+            font-weight: 700;
+            color: var(--secondary-accent);
+        }
+
+        .weather-loc {
+            font-size: 0.7rem;
+            opacity: 0.7;
+        }
+
+        .controls {
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+            flex-shrink: 0;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+            flex: 1;
+        }
+
+        /* Select & Button Styles */
+        select,
+        button.icon-btn {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid var(--card-border);
+            color: var(--text-color);
+            padding: 0.6rem 1.2rem;
+            border-radius: 12px;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            text-transform: uppercase;
+            font-size: 0.8rem;
+            appearance: none;
+            -webkit-appearance: none;
+            /* Custom Arrow */
+            background-image: url('data:image/svg+xml;utf8,<svg fill="%23e0e0e0" height="24" viewBox="0 0 24 24" width="24" xmlns="http://www.w3.org/2000/svg"><path d="M7 10l5 5 5-5z"/><path d="M0 0h24v24H0z" fill="none"/></svg>');
+            background-repeat: no-repeat;
+            background-position: right 8px center;
+            padding-right: 30px;
+        }
+
+        button.icon-btn {
+            padding: 0.6rem 1rem;
+            background-image: none;
+            padding-right: 1rem;
+        }
+
+        select:hover,
+        button.icon-btn:hover {
+            background-color: rgba(255, 255, 255, 0.15);
+            border-color: var(--accent-color);
+        }
+
+        select:focus,
+        button.icon-btn:focus {
+            outline: none;
+            box-shadow: 0 0 0 2px var(--accent-color);
+        }
+
+        .control-group {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .control-label {
+            font-size: 0.7rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            opacity: 0.6;
+            display: none;
+        }
+
+        /* Hide label for cleaner look on mobile, or keep generally */
+        @media(min-width: 768px) {
+            .control-label {
+                display: block;
+            }
+        }
+
+        /* --- Main Layout --- */
+        main {
+            flex: 1;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            /* 4 Columns */
+            gap: var(--lane-gap);
+            padding: var(--lane-gap);
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* --- Lanes --- */
+        .lane-window {
+            height: 100%;
+            overflow: hidden;
+            position: relative;
+            /* Mask top and bottom for smooth fade */
+            mask-image: linear-gradient(to bottom, transparent, black 5%, black 95%, transparent);
+            -webkit-mask-image: linear-gradient(to bottom, transparent, black 10%, black 90%, transparent);
+        }
+
+        .lane-content {
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            will-change: transform;
+            padding-bottom: 2rem;
+        }
+
+        /* --- Infinite Scroll Animation --- */
+        @keyframes scrollUp {
+            from {
+                transform: translateY(0);
+            }
+
+            to {
+                transform: translateY(-50%);
+            }
+        }
+
+        @keyframes scrollDown {
+            from {
+                transform: translateY(-50%);
+            }
+
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        /* Pause on hover */
+        .lane-window:hover .lane-content,
+        .card:hover {
+            animation-play-state: paused !important;
+        }
+
+        /* Lane Directions & Speeds */
+        #lane-1 .lane-content {
+            animation: scrollUp 50s linear infinite;
+        }
+
+        #lane-2 .lane-content {
+            animation: scrollDown 80s linear infinite;
+        }
+
+        #lane-3 .lane-content {
+            animation: scrollUp 90s linear infinite;
+        }
+
+        #lane-4 .lane-content {
+            animation: scrollDown 60s linear infinite;
+        }
+
+        /* Prefers Reduced Motion */
+        @media (prefers-reduced-motion: reduce) {
+            .lane-content {
+                animation: none !important;
+                transform: none !important;
+            }
+
+            .lane-window {
+                overflow-y: auto;
+                scrollbar-width: none;
+                mask-image: none;
+                -webkit-mask-image: none;
+            }
+        }
+
+        /* --- Cards --- */
+        .card {
+            background: var(--card-bg);
+            border: 1px solid var(--card-border);
+            border-radius: 20px;
+            padding: 0;
+            display: flex;
+            flex-direction: column;
+            box-shadow: var(--card-shadow);
+            backdrop-filter: blur(var(--glass-blur));
+            transition: transform 0.3s ease;
+            overflow: hidden;
+            min-height: 200px;
+        }
+
+        .card:hover {
+            transform: scale(1.02);
+            z-index: 10;
+            border-color: var(--accent-color);
+        }
+
+        .card-header {
+            padding: 1rem 1.2rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 0%, transparent 100%);
+        }
+
+        .badges {
+            display: flex;
+            gap: 0.5rem;
+        }
+
+        .badge {
+            font-size: 0.65rem;
+            padding: 0.2rem 0.6rem;
+            border-radius: 12px;
+            text-transform: uppercase;
+            font-weight: 700;
+        }
+
+        .badge-source {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--text-color);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        .badge-cat {
+            background: var(--secondary-accent);
+            color: #000;
+        }
+
+        .card-body {
+            padding: 1.2rem;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 0.8rem;
+        }
+
+        .card h3 {
+            font-size: 1.15rem;
+            line-height: 1.35;
+            color: #fff;
+            font-weight: 700;
+            margin-bottom: 0.2rem;
+        }
+
+        .card-meta {
+            font-size: 0.75rem;
+            opacity: 0.6;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .card-meta::before {
+            content: '';
+            display: inline-block;
+            width: 6px;
+            height: 6px;
+            background: var(--accent-color);
+            border-radius: 50%;
+            margin-right: 4px;
+        }
+
+        .card-desc {
+            font-size: 0.85rem;
+            line-height: 1.5;
+            opacity: 0.8;
+            overflow: hidden;
+            display: -webkit-box;
+            -webkit-line-clamp: 5;
+            -webkit-box-orient: vertical;
+        }
+
+        /* --- Status/Toast --- */
+        #status-panel {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            background: #333;
+            color: #fff;
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            opacity: 0;
+            transition: opacity 0.3s;
+            pointer-events: none;
+            z-index: 200;
+        }
+
+        #status-panel.visible {
+            opacity: 1;
+        }
+
+        #status-panel.error {
+            background: #d32f2f;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 1024px) {
+            main {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            header {
+                flex-wrap: wrap;
+                height: auto;
+                padding: 1rem;
+            }
+
+            .controls {
+                width: 100%;
+                justify-content: space-between;
+                margin-top: 1rem;
+            }
+        }
+
+        @media (max-width: 600px) {
+            main {
+                grid-template-columns: 1fr;
+                overflow-y: auto;
+                display: block;
+            }
+
+            .lane-window {
+                height: auto;
+                overflow: visible;
+                mask-image: none;
+                margin-bottom: 2rem;
+            }
+
+            .lane-content {
+                animation: none !important;
+            }
+
+            .card {
+                min-height: auto;
+            }
+
+            header {
+                flex-direction: column;
+                gap: 1rem;
+            }
+
+            .header-left {
+                flex-direction: column;
+                width: 100%;
+            }
+
+            .controls {
+                flex-direction: column;
+                gap: 0.5rem;
+                width: 100%;
+                align-items: stretch;
+            }
+
+            .control-group {
+                justify-content: space-between;
+            }
+
+            select,
+            button {
+                width: 100%;
+            }
+
+            body {
+                overflow: auto;
+                height: auto;
+            }
+        }
+    </style>
+</head>
+
+<body data-theme="Neon">
+
+    <header>
+        <div class="header-left">
+            <div class="logo">
+                <h1>Top News</h1>
+                <p>Fullscreen Feed</p>
+            </div>
+            <div class="weather-widget" id="weather-widget">
+                <div class="weather-icon">Loading...</div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <div class="control-group">
+                <span class="control-label">Region</span>
+                <select id="region-selector">
+                    <option value="DE">Germany</option>
+                    <option value="WORLD">World</option>
+                    <option value="US">USA</option>
+                    <option value="ME">Middle East</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <span class="control-label">Topic</span>
+                <select id="topic-selector">
+                    <option value="TOP">Top News</option>
+                    <option value="TECHNOLOGY">Technology</option>
+                    <option value="BUSINESS">Wirtschaft</option>
+                    <option value="SPORTS">Sport</option>
+                    <option value="SCIENCE">Science</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <span class="control-label">Theme</span>
+                <select id="theme-selector">
+                    <option value="Neon">Neon</option>
+                    <option value="Blue">Blue</option>
+                    <option value="Creative">Creative</option>
+                </select>
+            </div>
+
+            <button id="reload-btn" class="icon-btn">↻</button>
+        </div>
+    </header>
+
+    <main>
+        <div class="lane-window" id="lane-1">
+            <div class="lane-content" id="lane-content-1"></div>
+        </div>
+        <div class="lane-window" id="lane-2">
+            <div class="lane-content" id="lane-content-2"></div>
+        </div>
+        <div class="lane-window" id="lane-3">
+            <div class="lane-content" id="lane-content-3"></div>
+        </div>
+        <div class="lane-window" id="lane-4">
+            <div class="lane-content" id="lane-content-4"></div>
+        </div>
+    </main>
+
+    <div id="status-panel">Loading...</div>
+
+    <script>
+        // Configuration
+        const NEWS_ENDPOINT_PROXY = 'http://localhost:3000/api/news';
+        let currentTopicURL = '';
+
+        const maxDescLength = 180;
+
+        // Elements
+        const lanes = [
+            document.getElementById('lane-content-1'),
+            document.getElementById('lane-content-2'),
+            document.getElementById('lane-content-3'),
+            document.getElementById('lane-content-4')
+        ];
+        const statusPanel = document.getElementById('status-panel');
+        const themeSelector = document.getElementById('theme-selector');
+        const regionSelector = document.getElementById('region-selector');
+        const topicSelector = document.getElementById('topic-selector');
+        const reloadBtn = document.getElementById('reload-btn');
+        const weatherWidget = document.getElementById('weather-widget');
+
+        // Logic for URL Construction
+        function getRSSUrl() {
+            const region = regionSelector.value;
+            const topic = topicSelector.value;
+
+            // Base configs
+            let config = { hl: 'en-US', gl: 'US', ceid: 'US:en' }; // Default US
+
+            if (region === 'DE') config = { hl: 'de', gl: 'DE', ceid: 'DE:de' };
+            else if (region === 'US') config = { hl: 'en-US', gl: 'US', ceid: 'US:en' };
+            else if (region === 'ME') config = { hl: 'en', gl: 'AE', ceid: 'AE:en' }; // UAE as proxy for Middle East English
+            else if (region === 'WORLD') config = { hl: 'en-US', gl: 'US', ceid: 'US:en' };
+
+            let url = 'https://news.google.com/rss';
+
+            // Topic Logic
+            if (topic === 'TOP') {
+                if (region === 'WORLD') {
+                    // Special case: World Top News -> Topic WORLD
+                    url += `/headlines/section/topic/WORLD`;
+                }
+                // Else standard Top News for that edition (no extra path)
+            } else {
+                url += `/headlines/section/topic/${topic}`;
+            }
+
+            // Append params
+            url += `?hl=${config.hl}&gl=${config.gl}&ceid=${config.ceid}`;
+            return url;
+        }
+
+        // Utils
+        function showStatus(msg, isError = false) {
+            statusPanel.textContent = msg;
+            statusPanel.className = isError ? 'error visible' : 'visible';
+            setTimeout(() => {
+                if (!isError) statusPanel.classList.remove('visible');
+            }, 3000);
+        }
+
+        function timeAgo(date) {
+            const seconds = Math.floor((new Date() - date) / 1000);
+            let interval = seconds / 31536000;
+            if (interval > 1) return Math.floor(interval) + "y";
+            interval = seconds / 2592000;
+            if (interval > 1) return Math.floor(interval) + "mo";
+            interval = seconds / 86400;
+            if (interval > 1) return Math.floor(interval) + "d";
+            interval = seconds / 3600;
+            if (interval > 1) return Math.floor(interval) + "h";
+            interval = seconds / 60;
+            if (interval > 1) return Math.floor(interval) + "m";
+            return Math.floor(seconds) + "s";
+        }
+
+        // --- Weather ---
+        async function fetchWeather() {
+            try {
+                // Berlin defaults
+                const lat = 52.52;
+                const lon = 13.41;
+                const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current=temperature_2m,weather_code&hourly=temperature_2m&forecast_days=1`;
+
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (data.current) {
+                    const temp = Math.round(data.current.temperature_2m);
+                    const code = data.current.weather_code;
+                    let icon = '🌤';
+                    // Simple WMO code mapping
+                    if (code === 0) icon = '☀️';
+                    else if (code >= 1 && code <= 3) icon = '⛅';
+                    else if (code >= 45 && code <= 48) icon = '🌫';
+                    else if (code >= 51 && code <= 67) icon = '🌧';
+                    else if (code >= 71 && code <= 77) icon = '❄️';
+                    else if (code >= 95) icon = '⚡';
+
+                    weatherWidget.innerHTML = `
+                        <div class="weather-icon">${icon}</div>
+                        <div class="weather-info">
+                            <span class="weather-temp">${temp}°C</span>
+                            <span class="weather-loc">Berlin</span>
+                        </div>
+                    `;
+                }
+            } catch (e) {
+                console.error("Weather fetch failed", e);
+                weatherWidget.innerHTML = '<div class="weather-loc">Weather unavailable</div>';
+            }
+        }
+
+        // --- News Logic ---
+        async function fetchNews() {
+            showStatus("Loading...");
+            try {
+                const targetUrl = getRSSUrl();
+                const proxyUrl = `${NEWS_ENDPOINT_PROXY}?url=${encodeURIComponent(targetUrl)}`;
+
+                let response = await fetch(proxyUrl);
+                if (!response.ok) throw new Error('Network response was not ok');
+
+                const text = await response.text();
+                const parser = new DOMParser();
+                const xml = parser.parseFromString(text, "text/xml");
+
+                const items = Array.from(xml.querySelectorAll("item"));
+                if (items.length === 0) throw new Error("No news items found.");
+
+                return items.map(processItem);
+            } catch (error) {
+                console.error(error);
+                showStatus("Failed: " + error.message, true);
+                return [];
+            }
+        }
+
+        function processItem(itemNode) {
+            const titleFull = itemNode.querySelector("title")?.textContent || "No Title";
+            const pubDate = itemNode.querySelector("pubDate")?.textContent;
+            const link = itemNode.querySelector("link")?.textContent;
+            let rawDescription = itemNode.querySelector("description")?.textContent || "";
+
+            // Clean description text
+            const div = document.createElement("div");
+            div.innerHTML = rawDescription;
+            let description = div.textContent || div.innerText || "";
+            if (description.length > maxDescLength) description = description.substring(0, maxDescLength) + "...";
+
+            // Split Source
+            let headline = titleFull;
+            let source = "News";
+            const splitIdx = titleFull.lastIndexOf(" - ");
+            if (splitIdx > -1) {
+                headline = titleFull.substring(0, splitIdx);
+                source = titleFull.substring(splitIdx + 3);
+            }
+
+            return {
+                headline,
+                source,
+                date: pubDate ? new Date(pubDate) : new Date(),
+                description,
+                link
+            };
+        }
+
+        function createCard(item) {
+            const el = document.createElement('div');
+            el.className = 'card';
+
+            const tag = topicSelector.options[topicSelector.selectedIndex].text;
+            const region = regionSelector.options[regionSelector.selectedIndex].value;
+
+            el.innerHTML = `
+                <div class="card-header">
+                    <div class="badges">
+                        <span class="badge badge-cat">${tag}</span>
+                        <span class="badge badge-source">${region}</span>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <h3>${item.headline}</h3>
+                    <div class="card-meta">
+                        <span>${timeAgo(item.date)} ago</span>
+                        <span>• ${item.source}</span>
+                    </div>
+                    <p class="card-desc">${item.description}</p>
+                </div>
+            `;
+            el.addEventListener('click', () => { window.open(item.link, '_blank'); });
+            el.style.cursor = 'pointer';
+            return el;
+        }
+
+        function render(newsItems) {
+            // Fake First/Last cards relevant to topic
+            const activeTopic = topicSelector.options[topicSelector.selectedIndex].text;
+            const activeRegion = regionSelector.options[regionSelector.selectedIndex].text;
+
+            const firstCard = {
+                headline: `${activeRegion} • ${activeTopic}`,
+                source: "System",
+                date: new Date(),
+                description: `Live feed active for ${activeRegion} / ${activeTopic}.`,
+                link: '#'
+            };
+            const lastCard = {
+                headline: "End of Stream",
+                source: "System",
+                date: new Date(),
+                description: "Waiting for new updates...",
+                link: '#'
+            };
+
+            const allItems = [firstCard, ...newsItems, lastCard];
+
+            // Clear lanes
+            lanes.forEach(l => l.innerHTML = '');
+
+            // Distribute across 4 lanes
+            const laneItems = [[], [], [], []];
+            allItems.forEach((item, i) => {
+                laneItems[i % 4].push(item);
+            });
+
+            // Render to DOM & Duplicate for infinite scroll
+            laneItems.forEach((items, laneIdx) => {
+                const container = lanes[laneIdx];
+                const cards = items.map(createCard);
+                cards.forEach(c => container.appendChild(c));
+                // Duplicate for loop
+                cards.forEach(c => container.appendChild(c.cloneNode(true)));
+            });
+
+            showStatus("Live info updated");
+        }
+
+        async function updateFeed() {
+            const news = await fetchNews();
+            render(news);
+        }
+
+        // --- Events ---
+        themeSelector.addEventListener('change', (e) => {
+            document.body.setAttribute('data-theme', e.target.value);
+        });
+
+        reloadBtn.addEventListener('click', updateFeed);
+
+        // Filter Logic
+        topicSelector.addEventListener('change', updateFeed);
+        regionSelector.addEventListener('change', updateFeed);
+
+        // Start
+        fetchWeather();
+        updateFeed();
+        // Refresh weather every 10 mins
+        setInterval(fetchWeather, 600000);
+
+    </script>
+</body>
+
+</html>
